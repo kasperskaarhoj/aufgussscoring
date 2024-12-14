@@ -1,0 +1,6 @@
+[Details]
+  Icon = "Icon.png"
+  Name = "Aufguss Scoring Generator"
+  ID = "com.example.aufgussscore"
+  Version = "1.0.0"
+  Build = 8

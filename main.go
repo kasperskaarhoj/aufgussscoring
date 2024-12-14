@@ -1,33 +1,139 @@
 package main
 
 import (
+	"bytes"
+	_ "embed"
+	"image/color"
+	"os"
+	"path/filepath"
+	"strings"
+
 	"context"
 	"fmt"
+	"image"
 
 	log "github.com/s00500/env_logger"
 
 	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/option"
 	"google.golang.org/api/sheets/v4"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
 )
 
+// Embed the logo file
+//
+//go:embed embedded/logo.png
+var logoPNG []byte
+
+var competitionsDir string = "competitions"
+
+// Competition struct
 type Competition struct {
-	Name          string // Name of new folder with Spreadsheets
-	SourceSheetID string
-	Jury          []*Juror
-	Contestants   []*Contestant
+	Name          string        `json:"name"`
+	SourceSheetID string        `json:"source_sheet_id"`
+	Jury          []*Juror      `json:"jury"`
+	Contestants   []*Contestant `json:"contestants"`
 }
 
 type Juror struct {
-	Name   string
-	Weight int
+	Name   string `json:"name"`
+	Weight int    `json:"weight"`
 }
 
 type Contestant struct {
-	Name string
+	Name string `json:"name"`
 }
 
+// Directory to store competition files
+const appWidth = 800
+
+var dataDir string
+
 func main() {
+
+	// Setting the path.
+	execPath, err := getExecutableDir()
+	if err != nil {
+		log.Fatalf("Failed to get executable directory: %v", err)
+	}
+
+	// For a bundled application, it will be the absolute path, and we split by the application name.
+	exePathParts := strings.Split(execPath, "Aufguss Scoring Generator.app")
+	if len(exePathParts) != 2 {
+		exePathParts[0] = "" // Otherwise (when running in development) we will use relative path
+		//log.Fatalf("Aufguss Scoring Generator.app was not in path")
+	}
+
+	dataDir = filepath.Join(exePathParts[0], "competitions")
+	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(dataDir, 0755); err != nil {
+			log.Fatalf("Failed to create competitions directory: %v", err)
+		}
+	}
+	//log.Println(dataDir)
+
+	// Initialize app and window
+	myApp := app.NewWithID("com.example.aufgussscoring")
+
+	// Apply the custom theme
+	myApp.Settings().SetTheme(&CustomTheme{})
+
+	mainWindow := myApp.NewWindow("Scoring Sheet Generator")
+	mainWindow.Resize(fyne.NewSize(appWidth, 600))
+
+	// Decode the embedded PNG
+	img, _, err := image.Decode(bytes.NewReader(logoPNG))
+	if err != nil {
+		log.Fatalf("Failed to decode embedded image: %v", err)
+	}
+
+	// Create a Fyne image from the decoded Go image
+	logo := canvas.NewImageFromImage(img)
+	logo.FillMode = canvas.ImageFillContain
+	logo.SetMinSize(fyne.Size{1675 / (1675 / appWidth), 163 / (1675 / appWidth)})
+
+	spaceAbove := canvas.NewRectangle(color.Transparent)
+	spaceAbove.SetMinSize(fyne.NewSize(0, 10)) // 20 pixels of space
+
+	appLayout := container.NewVBox(
+		spaceAbove,
+		logo,
+		spaceAbove,
+		fynelayout(mainWindow, myApp),
+	)
+
+	// Set content and run the app
+	mainWindow.SetContent(appLayout)
+
+	// Add Application Menu for macOS
+	mainWindow.SetMainMenu(
+		fyne.NewMainMenu(
+			fyne.NewMenu("",
+				fyne.NewMenuItem("Preferences", func() {
+					showPreferences(myApp, mainWindow) // Show Preferences dialog
+				}),
+			),
+		),
+	)
+
+	mainWindow.ShowAndRun()
+}
+
+func getExecutableDir() (string, error) {
+	execPath, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Dir(execPath), nil
+}
+
+// Helper Functions
+
+func main_2() {
 
 	// Name of JSON file with credentials to access these Google Docs resources
 	credentialsFile := "aufguss-dm-169088e9f544.json" // Replace with your JSON file
@@ -253,31 +359,6 @@ func main() {
 
 	// Duplicate Juror rows in the Overview Spreadsheet:
 	processJurorRows(sheetsService, adminSheetId, sheetNames, pointsAndTotal, competition.Jury, jurorSheets)
-
-	// // 5. Write a value to a cell in the copied sheet
-	// writeRange := "Board 2!B1" // Adjust as necessary
-	// value := "My Name!"
-	// values := &sheets.ValueRange{
-	// 	Values: [][]interface{}{{value}},
-	// }
-	// _, err = sheetsService.Spreadsheets.Values.Update(copiedSpreadsheetID, writeRange, values).
-	// 	ValueInputOption("RAW").Do()
-	// if err != nil {
-	// 	log.Fatalf("Unable to write to sheet: %v", err)
-	// }
-	// fmt.Println("Written value to cell A1 in the copied sheet")
-
-	// // 6. Insert a row in the copied sheet
-	// insertRange := "Board 2!A9:A9" // Adjust as necessary
-	// newRow := &sheets.ValueRange{
-	// 	Values: [][]interface{}{{"", "(New Row)"}},
-	// }
-	// _, err = sheetsService.Spreadsheets.Values.Append(copiedSpreadsheetID, insertRange, newRow).
-	// 	ValueInputOption("RAW").InsertDataOption("INSERT_ROWS").Do()
-	// if err != nil {
-	// 	log.Fatalf("Unable to insert row: %v", err)
-	// }
-	// fmt.Println("Inserted new row in the copied sheet")
 }
 
 type RowColumnInfo struct {
