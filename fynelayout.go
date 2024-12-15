@@ -368,6 +368,7 @@ func createJuryTable(jurors *[]*Juror) (*fyne.Container, *widget.Table) {
 var contestantsMutex sync.RWMutex
 
 func createContestantsTable(contestants *[]*Contestant) (*fyne.Container, *widget.Table) {
+
 	// Create the contestants table
 	contestantsTable := widget.NewTable(
 		func() (int, int) {
@@ -523,12 +524,17 @@ func createTemplateSheetSelector(
 
 // Validation function
 func validateCompetition(comp Competition) error {
-	// Check for empty strings in the Competition fields
+	// Check for empty competition name
 	if strings.TrimSpace(comp.Name) == "" {
 		return fmt.Errorf("Competition name cannot be empty.")
 	}
 
-	// Check for empty Jurors and Contestants
+	// Check for at least one juror
+	if len(comp.Jury) == 0 {
+		return fmt.Errorf("There must be at least one juror.")
+	}
+
+	// Check for empty juror fields and valid weights
 	for i, juror := range comp.Jury {
 		if strings.TrimSpace(juror.Name) == "" {
 			return fmt.Errorf("Juror #%d has an empty name.", i+1)
@@ -538,10 +544,21 @@ func validateCompetition(comp Competition) error {
 		}
 	}
 
+	// Check for at least one contestant
+	if len(comp.Contestants) == 0 {
+		return fmt.Errorf("There must be at least one contestant.")
+	}
+
+	// Check for empty contestant names
 	for i, contestant := range comp.Contestants {
 		if strings.TrimSpace(contestant.Name) == "" {
 			return fmt.Errorf("Contestant #%d has an empty name.", i+1)
 		}
+	}
+
+	// Check if a template sheet is defined
+	if strings.TrimSpace(comp.SourceSheetID) == "" {
+		return fmt.Errorf("A template sheet must be defined.")
 	}
 
 	// If no errors, return nil
