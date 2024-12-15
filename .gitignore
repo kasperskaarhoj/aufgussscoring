@@ -2,3 +2,6 @@ aufguss-dm-169088e9f544.json
 aufguss-scoring-6ad4a3b3519f.json
 competitions/*
 .DS_Store
+Aufguss Scoring Generator.app/Contents/Info.plist
+Aufguss Scoring Generator.app/Contents/MacOS/aufgussscoring
+Aufguss Scoring Generator.app/Contents/Resources/icon.icns
