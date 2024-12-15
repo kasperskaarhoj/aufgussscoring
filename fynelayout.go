@@ -52,26 +52,10 @@ func fynelayout(myWindow fyne.Window, myApp fyne.App) *fyne.Container {
 
 	// Create a read-only log field with black text
 	logField := NewCustomLogField(color.Black)
-	//logField.SetText(dataDir)
 
 	// Wrap the log field in a scrollable container
 	scrollableLog := container.NewVScroll(logField)
 	scrollableLog.SetMinSize(fyne.NewSize(400, 150)) // Set a minimum size for the log window
-
-	// Start a goroutine to update the log every second
-	go func() {
-		ticker := time.NewTicker(1 * time.Second)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case t := <-ticker.C:
-				// Append the current time to the log
-				logField.SetText(fmt.Sprintf("%s%s\n", logField.Text, t.Format("15:04:05")))
-				scrollableLog.ScrollToBottom() // Automatically scroll to the last line
-			}
-		}
-	}()
 
 	var right, left *fyne.Container
 
@@ -119,8 +103,11 @@ func fynelayout(myWindow fyne.Window, myApp fyne.App) *fyne.Container {
 		}
 	})
 
-	// Generate button
-	generateButton := widget.NewButton("Generate!", func() {
+	var cancelFunc context.CancelFunc
+	var cancelButton *widget.Button
+	var generateButton *widget.Button
+	generateButton = widget.NewButton("Generate!", func() {
+
 		// Validate the competition name
 		if strings.TrimSpace(nameEntry.Text) == "" {
 			dialog.ShowError(fmt.Errorf("Competition name cannot be empty."), myWindow)
@@ -148,12 +135,40 @@ func fynelayout(myWindow fyne.Window, myApp fyne.App) *fyne.Container {
 		if err := saveCompetition(competition); err != nil {
 			dialog.ShowError(err, myWindow)
 		} else {
-			dialog.ShowInformation("Success", "Competition generated successfully!", myWindow)
-			files, _ := loadCompetitionFiles() // Reload files
+			cancelButton.Enable()
+			generateButton.Disable()
+
+			// Reload files
+			files, _ := loadCompetitionFiles()
 			fileSelect.Options = files
 			fileSelect.SetSelected(fmt.Sprintf("%s.json", competition.Name))
+
+			logField.SetText("Generating...\n")
+			logFunction := func(message string) {
+				logField.SetText(fmt.Sprintf("%s%s", logField.Text, message))
+			}
+
+			// Create a context with cancellation
+			ctx, cancel := context.WithCancel(context.Background())
+			cancelFunc = cancel
+
+			// Run the sheet generation asynchronously
+			go func() {
+				err := generateGoogleSheets(ctx, myApp.Preferences().String("credentials"), myApp.Preferences().String("folder_id"), competition, logFunction)
+				if err != nil {
+					logFunction(fmt.Sprintf("Error: %v\n", err))
+				} else {
+					logFunction("Generation completed successfully.\n")
+				}
+				cancelButton.Disable()
+				generateButton.Enable()
+			}()
 		}
 	})
+	cancelButton = widget.NewButton("Cancel", func() {
+		cancelFunc()
+	})
+	cancelButton.Disable()
 
 	// Delete button
 	deleteButton := widget.NewButton("Delete", func() {
@@ -250,6 +265,7 @@ func fynelayout(myWindow fyne.Window, myApp fyne.App) *fyne.Container {
 			deleteButton,
 			layout.NewSpacer(),
 			generateButton,
+			cancelButton,
 		),
 
 		container.NewVBox(
@@ -510,9 +526,9 @@ func createTemplateSheetSelector(
 		fileMapMutex.RLock()
 		defer fileMapMutex.RUnlock()
 
-		if id, exists := (*fileMap)[selected]; exists {
-			fmt.Printf("Selected File Name: %s, ID: %s\n", selected, id)
-		}
+		// if id, exists := (*fileMap)[selected]; exists {
+		// 	fmt.Printf("Selected File Name: %s, ID: %s\n", selected, id)
+		// }
 	}
 
 	// Return the layout

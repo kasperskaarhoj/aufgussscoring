@@ -8,13 +8,11 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// CustomLogField is a read-only MultiLineEntry with custom text color
 type CustomLogField struct {
 	widget.Entry
 	textColor color.Color
 }
 
-// NewCustomLogField creates a new log field with the specified text color
 func NewCustomLogField(textColor color.Color) *CustomLogField {
 	logField := &CustomLogField{textColor: textColor}
 	logField.ExtendBaseWidget(logField)
