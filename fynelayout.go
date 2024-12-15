@@ -107,7 +107,6 @@ func fynelayout(myWindow fyne.Window, myApp fyne.App) *fyne.Container {
 	var cancelButton *widget.Button
 	var generateButton *widget.Button
 	generateButton = widget.NewButton("Generate!", func() {
-
 		// Validate the competition name
 		if strings.TrimSpace(nameEntry.Text) == "" {
 			dialog.ShowError(fmt.Errorf("Competition name cannot be empty."), myWindow)
@@ -152,6 +151,9 @@ func fynelayout(myWindow fyne.Window, myApp fyne.App) *fyne.Container {
 			ctx, cancel := context.WithCancel(context.Background())
 			cancelFunc = cancel
 
+			// Channel to signal completion of the goroutine
+			done := make(chan bool)
+
 			// Run the sheet generation asynchronously
 			go func() {
 				err := generateGoogleSheets(ctx, myApp.Preferences().String("credentials"), myApp.Preferences().String("folder_id"), competition, logFunction)
@@ -160,11 +162,35 @@ func fynelayout(myWindow fyne.Window, myApp fyne.App) *fyne.Container {
 				} else {
 					logFunction("Generation completed successfully.\n")
 				}
-				cancelButton.Disable()
-				generateButton.Enable()
+				done <- true
+			}()
+
+			// Start a goroutine to update the button label with the elapsed time
+			go func() {
+				startTime := time.Now()
+				ticker := time.NewTicker(1 * time.Second)
+				defer ticker.Stop()
+
+				for {
+					select {
+					case <-ticker.C:
+						// Update the button label with the elapsed time
+						elapsed := time.Since(startTime)
+						minutes := int(elapsed.Minutes())
+						seconds := int(elapsed.Seconds()) % 60
+						generateButton.SetText(fmt.Sprintf("Generate! (%d:%02d)", minutes, seconds))
+					case <-done:
+						// Reset the button label once the process is complete
+						generateButton.SetText("Generate!")
+						generateButton.Enable()
+						cancelButton.Disable()
+						return
+					}
+				}
 			}()
 		}
 	})
+
 	cancelButton = widget.NewButton("Cancel", func() {
 		cancelFunc()
 	})

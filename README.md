@@ -1,21 +1,17 @@
-# aufgussjury
-Go-lang application to generate a set of google sheets for aufguss jury voting
+# Aufguss Jury Application Notes
 
+## Overview
+Go-lang application to generate a set of Google Sheets for Aufguss jury voting.
 
+## Manual
+Read the Manual.pdf file for all information usage.
 
+## Build Commands
+```bash
+fyne package -os darwin
+```
 
-
-fyne package -os darwin          
-
-
-
+After doing so, edit the Info.plist file by inserting this:
 
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2024 Kasper Skårhøj</string>
-
-
-Settings: 
-Set folder! make sure there is access.
-
-
-Any sheet in the folder 
