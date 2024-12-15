@@ -1,7 +1,7 @@
-# Aufguss Jury Application Notes
+# Aufguss Scoring Sheet Generator
 
 ## Overview
-Go-lang application to generate a set of Google Sheets for Aufguss jury voting.
+Go-lang GUI application to generate a set of Google Sheets for aufguss competitions.
 
 ## Manual
 Read the Manual.pdf file for all information usage.
